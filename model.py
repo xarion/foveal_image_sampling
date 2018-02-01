@@ -65,7 +65,8 @@ class Model:
             y=labels,
             batch_size=batch_size,
             num_epochs=None,
-            shuffle=False if mode is 3 else True)
+            shuffle=False if mode is 3 else True,
+            num_threads=1 if mode is 3 else 12)
 
         inputs = input_fn()
         #  flattened image tensor and the label tensor
