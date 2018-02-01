@@ -1,3 +1,4 @@
+import matplotlib; matplotlib.use('agg')
 import tensorflow as tf
 from model import Model
 
