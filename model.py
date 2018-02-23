@@ -19,15 +19,15 @@ class Model:
         self.loss, self.training_op, self.predictions, self.accuracy, self.global_step = self.define_model()
 
     def get_kernel_parameters(self):
-        x_mus = tf.range(start=25, limit=75, delta=4.54545)
-        y_mus = tf.range(start=25, limit=75, delta=4.54545)
+        x_mus = tf.range(start=10, limit=90, delta=80./12.)
+        y_mus = tf.range(start=10, limit=90, delta=80./12.)
 
         x_mus, y_mus = tf.meshgrid(x_mus, y_mus)
 
         # accept those as the initial values.
         x_mus = tf.Variable(x_mus)
         y_mus = tf.Variable(y_mus)
-        sigmas = tf.Variable(tf.ones([12, 12]) * 1.7)
+        sigmas = tf.Variable(tf.ones([12, 12]) * 0.07)
         return x_mus, y_mus, sigmas
 
     def get_kernels(self):
@@ -58,7 +58,7 @@ class Model:
         data = dataset.images  # Returns np.array
         labels = np.asarray(dataset.labels, dtype=np.int32)
 
-        cluttered_data = clutter_it(data, self.mnist, flag_c=1)
+        cluttered_data = clutter_it(data, self.mnist, flag_c=mode, flag_d=1)
 
         input_fn = tf.estimator.inputs.numpy_input_fn(
             x={"x": cluttered_data},
@@ -96,22 +96,28 @@ class Model:
     def define_model(self):
         with tf.variable_scope("kernels"):
             l = tf.matmul(self.images, self.kernels)
-            l = batch_norm(l)
+            l = batch_norm(l, fused=True)
             l = tf.nn.relu(l)
 
         with tf.variable_scope("fc_1"):
             weights = tf.Variable(tf.random_normal([144, 512], stddev=0.1), name="weights")
             l = tf.matmul(l, weights)
-            l = batch_norm(l)
+            l = batch_norm(l, fused=True)
             l = tf.nn.relu(l)
 
         with tf.variable_scope("fc_2"):
             weights = tf.Variable(tf.random_normal([512, 512], stddev=0.1), name="weights")
             l = tf.matmul(l, weights)
-            l = batch_norm(l)
+            l = batch_norm(l, fused=True)
             l = tf.nn.relu(l)
 
         with tf.variable_scope("fc_3"):
+            weights = tf.Variable(tf.random_normal([512, 512], stddev=0.1), name="weights")
+            l = tf.matmul(l, weights)
+            l = batch_norm(l, fused=True)
+            l = tf.nn.relu(l)
+
+        with tf.variable_scope("fc_4"):
             weights = tf.Variable(tf.random_normal([512, 10], stddev=0.1), name="weights")
             l = tf.matmul(l, weights)
             bias = tf.Variable(tf.zeros([10]))
@@ -130,6 +136,12 @@ class Model:
             tf.summary.scalar('loss', loss)
 
         with tf.variable_scope("training"):
+            with tf.device("/cpu:0"):
+                global_step = tf.Variable(0, name='global_step', trainable=False)
+                boundaries = [45000, 57000]
+                values = [0.1, 0.01, 0.001]
+                learning_rate = tf.train.piecewise_constant(global_step, boundaries, values)
+                tf.summary.scalar('learning_rate', learning_rate)
             global_step = tf.Variable(0, name='global_step', trainable=False)
             boundaries = [5000, 7000]
             values = [0.1, 0.01, 0.001]
