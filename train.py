@@ -43,7 +43,7 @@ class Train:
         val_accuracy = 0.
         try:
             step, = self.session.run([self.model.global_step])
-            while not self.coord.should_stop() and not (step >= 8000):
+            while not self.coord.should_stop() and not (step >= 80000):
                 if step % 100 == 0:
                     x_mus, y_mus, sigmas = self.session.run([self.model.x_mus, self.model.y_mus, self.model.sigmas])
                     self.plot_kernels(x_mus, y_mus, sigmas, step)
