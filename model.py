@@ -15,7 +15,7 @@ class Model:
         self.x_mus, self.y_mus, self.sigmas = self.get_kernel_parameters()
         self.kernels = self.get_kernels()
         self.mnist = tf.contrib.learn.datasets.load_dataset("mnist")
-        self.images, self.labels = self.get_data()
+        self.images, self.labels = self.get_data_placeholders()
         self.loss, self.training_op, self.predictions, self.accuracy, self.global_step = self.define_model()
 
     def get_kernel_parameters(self):
@@ -46,52 +46,28 @@ class Model:
         kernels = x_values * y_values
         return tf.reshape(kernels, [100 * 100, 12 * 12])
 
-    def get_data_tensors(self, mode, batch_size=100):
+    def get_numpy_data(self, mode, batch_size=100):
         if mode is 1:
             dataset = self.mnist.train  # Returns np.array
+            subsamples = np.random.randint(0, dataset.num_examples, batch_size)
         elif mode is 2:
             dataset = self.mnist.validation
+            subsamples = np.random.randint(0, dataset.num_examples, batch_size)
         else:
             dataset = self.mnist.test
-            batch_size = 10000
+            batch_size = dataset.num_examples
+            subsamples = np.arange(0, batch_size)
 
-        data = dataset.images  # Returns np.array
-        labels = np.asarray(dataset.labels, dtype=np.int32)
+        data = dataset.images[subsamples]  # Returns np.array
+        labels = np.asarray(dataset.labels[subsamples], dtype=np.int32)
 
         cluttered_data = clutter_it(data, self.mnist, flag_c=mode, flag_d=1)
 
-        input_fn = tf.estimator.inputs.numpy_input_fn(
-            x={"x": cluttered_data},
-            y=labels,
-            batch_size=batch_size,
-            num_epochs=None,
-            shuffle=False if mode is 3 else True,
-            num_threads=1 if mode is 3 else 12)
+        return cluttered_data, labels
 
-        inputs = input_fn()
-        #  flattened image tensor and the label tensor
-        return inputs[0]['x'], inputs[1]
-
-    def get_data(self):
-        training = self.get_data_tensors(1, batch_size=100)
-        validation = self.get_data_tensors(2, batch_size=100)
-        test = self.get_data_tensors(3, batch_size=100)
-
-        # can't put tuples in switch, that's why we have two separate cases
-
-        images = control.merge(
-            [control.switch(training[0], tf.equal(self.mode, 1))[1],
-             control.switch(validation[0], tf.equal(self.mode, 2))[1],
-             control.switch(test[0], tf.equal(self.mode, 3))[1]]
-        )[0]
-
-        labels = control.merge(
-            [control.switch(training[1], tf.equal(self.mode, 1))[1],
-             control.switch(validation[1], tf.equal(self.mode, 2))[1],
-             control.switch(test[1], tf.equal(self.mode, 3))[1]]
-        )[0]
-
-        return images, labels
+    def get_data_placeholders(self, batch_size=100):
+        return tf.placeholder(tf.float32, [batch_size, 100 * 100]), tf.placeholder(tf.int32, [batch_size])
+        # return images, labels
 
     def define_model(self):
         with tf.variable_scope("kernels"):

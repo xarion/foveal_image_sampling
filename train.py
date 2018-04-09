@@ -48,20 +48,27 @@ class Train:
                     x_mus, y_mus, sigmas = self.session.run([self.model.x_mus, self.model.y_mus, self.model.sigmas])
                     self.plot_kernels(x_mus, y_mus, sigmas, step)
                 # Train the model
+
+                images, labels = self.model.get_numpy_data(mode=1)
                 m, _, loss, step, labels, accuracy, = self.session.run([self.merged_summaries,
                                                                         self.model.training_op,
                                                                         self.model.loss,
                                                                         self.model.global_step,
                                                                         self.model.labels,
-                                                                        self.model.accuracy])
+                                                                        self.model.accuracy],
+                                                                       feed_dict={self.model.images: images,
+                                                                                  self.model.labels: labels})
                 self.train_writer.add_summary(m, step)
 
-                # Do Validation every 50 steps
+                # Do Validation every 20 steps
                 if step % 20 == 0:
+                    images, labels = self.model.get_numpy_data(mode=2)
                     m, val_accuracy, = self.session.run([self.merged_summaries, self.model.accuracy],
-                                                        feed_dict={self.model.mode: 2})
+                                                        feed_dict={self.model.mode: 2,
+                                                                   self.model.images: images,
+                                                                   self.model.labels: labels})
                     self.validation_writer.add_summary(m, global_step=step)
-                    tf.logging.info("===== validation accuracy %.2f =====" % val_accuracy)
+                    tf.logging.info("===== step: %d, validation accuracy: %.2f =====" % (step, val_accuracy))
 
         except tf.errors.OutOfRangeError:
             tf.logging.info('Done training -- epoch limit reached')
