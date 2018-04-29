@@ -8,10 +8,11 @@ from clutter_it_mnist import clutter_it
 
 
 class Model:
-    def __init__(self):
+    def __init__(self, sigma):
         #  default mode is training
-        self.mode = tf.placeholder_with_default(tf.constant(1, dtype=tf.int32), shape=[])
+        self.sigma = sigma
 
+        self.mode = tf.placeholder_with_default(tf.constant(1, dtype=tf.int32), shape=[])
         self.x_mus, self.y_mus, self.sigmas = self.get_kernel_parameters()
         self.kernels = self.get_kernels()
         self.mnist = tf.contrib.learn.datasets.load_dataset("mnist")
@@ -19,15 +20,15 @@ class Model:
         self.loss, self.training_op, self.predictions, self.accuracy, self.global_step = self.define_model()
 
     def get_kernel_parameters(self):
-        x_mus = tf.range(start=10, limit=90, delta=80./12.)
-        y_mus = tf.range(start=10, limit=90, delta=80./12.)
+        x_mus = tf.range(start=10, limit=91, delta=80./11.)
+        y_mus = tf.range(start=10, limit=91, delta=80./11.)
 
         x_mus, y_mus = tf.meshgrid(x_mus, y_mus)
 
         # accept those as the initial values.
         x_mus = tf.Variable(x_mus)
         y_mus = tf.Variable(y_mus)
-        sigmas = tf.Variable(tf.ones([12, 12]) * 0.07)
+        sigmas = tf.Variable(tf.ones([12, 12]) * self.sigma)
         return x_mus, y_mus, sigmas
 
     def get_kernels(self):
@@ -114,15 +115,11 @@ class Model:
         with tf.variable_scope("training"):
             with tf.device("/cpu:0"):
                 global_step = tf.Variable(0, name='global_step', trainable=False)
-                boundaries = [45000, 57000]
-                values = [0.1, 0.01, 0.001]
-                learning_rate = tf.train.piecewise_constant(global_step, boundaries, values)
+                # boundaries = [45000, 57000]
+                # values = [0.1, 0.01, 0.001]
+                # learning_rate = tf.train.piecewise_constant(global_step, boundaries, values)
+                learning_rate = 0.1
                 tf.summary.scalar('learning_rate', learning_rate)
-            global_step = tf.Variable(0, name='global_step', trainable=False)
-            boundaries = [5000, 7000]
-            values = [0.1, 0.01, 0.001]
-            learning_rate = tf.train.piecewise_constant(global_step, boundaries, values)
-            tf.summary.scalar('learning_rate', learning_rate)
 
             optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
 

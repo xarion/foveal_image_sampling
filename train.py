@@ -1,4 +1,6 @@
-import matplotlib; matplotlib.use('agg')
+import matplotlib;
+
+matplotlib.use('agg')
 import tensorflow as tf
 from model import Model
 
@@ -7,15 +9,18 @@ import os
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
-OUTPUT_DIR = "data"
+sigma = 5
+OUTPUT_DIR = "data_" + str(sigma)
 
 
 class Train:
     def __init__(self):
-        self.session = tf.Session()
+
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.2)
+        self.session = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
         self.checkpoint_dir = OUTPUT_DIR + "/checkpoints"
         with self.session.as_default():
-            self.model = Model()
+            self.model = Model(sigma=sigma)
             self.train_writer = tf.summary.FileWriter(OUTPUT_DIR + "/train", self.session.graph)
             self.validation_writer = tf.summary.FileWriter(OUTPUT_DIR + "/validation", self.session.graph)
             self.merged_summaries = tf.summary.merge_all()
