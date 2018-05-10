@@ -2,16 +2,16 @@ import tensorflow as tf
 import numpy as np
 
 from tensorflow.contrib.layers import batch_norm
-from tensorflow.python.ops import control_flow_ops as control
 
 from clutter_it_mnist import clutter_it
 
 
 class Model:
-    def __init__(self, sigma):
+    def __init__(self, sigma, freeze_kernels, flag_d):
         #  default mode is training
         self.sigma = sigma
-
+        self.freeze_kernels = freeze_kernels
+        self.flag_d = flag_d
         self.mode = tf.placeholder_with_default(tf.constant(1, dtype=tf.int32), shape=[])
         self.x_mus, self.y_mus, self.sigmas = self.get_kernel_parameters()
         self.kernels = self.get_kernels()
@@ -26,9 +26,16 @@ class Model:
         x_mus, y_mus = tf.meshgrid(x_mus, y_mus)
 
         # accept those as the initial values.
-        x_mus = tf.Variable(x_mus)
-        y_mus = tf.Variable(y_mus)
-        sigmas = tf.Variable(tf.ones([12, 12]) * self.sigma)
+
+        x_mus = tf.Variable(x_mus, dtype=tf.float32, trainable=not self.freeze_kernels)
+        y_mus = tf.Variable(y_mus, dtype=tf.float32, trainable=not self.freeze_kernels)
+        sigmas = tf.Variable(tf.ones([12, 12]) * self.sigma, dtype=tf.float32, trainable=not self.freeze_kernels)
+
+        # if self.freeze_kernels:
+        #     x_mus = tf.constant(x_mus)
+        #     y_mus = tf.constant(y_mus)
+        #     sigmas = tf.constant(tf.ones([12, 12]) * self.sigma)
+
         return x_mus, y_mus, sigmas
 
     def get_kernels(self):
@@ -62,12 +69,12 @@ class Model:
         data = dataset.images[subsamples]  # Returns np.array
         labels = np.asarray(dataset.labels[subsamples], dtype=np.int32)
 
-        cluttered_data = clutter_it(data, self.mnist, flag_c=mode, flag_d=1)
+        cluttered_data = clutter_it(data, self.mnist, flag_c=mode, flag_d=self.flag_d)
 
         return cluttered_data, labels
 
     def get_data_placeholders(self, batch_size=100):
-        return tf.placeholder(tf.float32, [batch_size, 100 * 100]), tf.placeholder(tf.int32, [batch_size])
+        return tf.placeholder(tf.float32, [None, 100 * 100]), tf.placeholder(tf.int32, [None])
         # return images, labels
 
     def define_model(self):

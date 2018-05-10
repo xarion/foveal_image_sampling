@@ -7,22 +7,27 @@ from model import Model
 import matplotlib.pyplot as plt
 import os
 
+import pickle
+
 tf.logging.set_verbosity(tf.logging.INFO)
 
-sigma = 5
-OUTPUT_DIR = "data_" + str(sigma)
+sigma = 1
 
 
 class Train:
-    def __init__(self):
+    def __init__(self, freeze_kernels, flag_d):
+        self.output_dir = "data_" + str(freeze_kernels) + "_" + str(flag_d)
 
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.2)
+        self.pickle_data = {'freeze_kernels': freeze_kernels, 'flag_d': flag_d}
+
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.15)
         self.session = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
-        self.checkpoint_dir = OUTPUT_DIR + "/checkpoints"
+        self.checkpoint_dir = self.output_dir + "/checkpoints"
+
         with self.session.as_default():
-            self.model = Model(sigma=sigma)
-            self.train_writer = tf.summary.FileWriter(OUTPUT_DIR + "/train", self.session.graph)
-            self.validation_writer = tf.summary.FileWriter(OUTPUT_DIR + "/validation", self.session.graph)
+            self.model = Model(sigma=sigma, freeze_kernels=freeze_kernels, flag_d=flag_d)
+            self.train_writer = tf.summary.FileWriter(self.output_dir + "/train", self.session.graph)
+            self.validation_writer = tf.summary.FileWriter(self.output_dir + "/validation", self.session.graph)
             self.merged_summaries = tf.summary.merge_all()
             self.saver = tf.train.Saver(max_to_keep=2)
             self.coord = tf.train.Coordinator()
@@ -40,8 +45,8 @@ class Train:
 
         tf.train.start_queue_runners(sess=self.session, coord=self.coord)
 
-        if not os.path.exists(OUTPUT_DIR + "/kernels"):
-            os.makedirs(OUTPUT_DIR + "/kernels")
+        if not os.path.exists(self.output_dir + "/kernels"):
+            os.makedirs(self.output_dir + "/kernels")
 
     def run_training_batches(self):
         step = 0
@@ -96,13 +101,26 @@ class Train:
         self.initialize()
         self.run_training_batches()
         self.run_test_batch()
+        self.pickle_for_sush()
         self.finalize()
 
     def run_test_batch(self):
+        images, labels = self.model.get_numpy_data(mode=3)
+
         test_accuracy, = self.session.run([self.model.accuracy],
-                                          feed_dict={self.model.mode: 3})
+                                          feed_dict={self.model.mode: 3,
+                                                     self.model.images: images,
+                                                     self.model.labels: labels})
+        self.pickle_data["test_accuracy"] = test_accuracy
         tf.logging.info("===== test accuracy %.2f =====" % test_accuracy)
         self.save_checkpoint(0, test_accuracy)
+
+    def pickle_for_sush(self):
+        x_mus, y_mus, sigmas, = self.session.run([self.model.x_mus, self.model.y_mus, self.model.sigmas])
+        self.pickle_data["x_mus"] = x_mus
+        self.pickle_data["y_mus"] = y_mus
+        self.pickle_data["sigmas"] = sigmas
+        pickle.dump(self.pickle_data, open(self.output_dir + ".pickle", "wb"))
 
     def plot_kernels(self, x_mus, y_mus, sigmas, step):
         x_mus = x_mus.flatten()
@@ -114,9 +132,9 @@ class Train:
         plt.ylim((0, 100))
         for x, y, sigma in zip(x_mus, y_mus, sigmas):
             ax.add_artist(plt.Circle((x, y), sigma, color='yellow'))
-        fig.savefig(OUTPUT_DIR + '/kernels/%d.png' % step)
+        fig.savefig(self.output_dir + '/kernels/%d.png' % step)
 
 
 if __name__ == '__main__':
-    t = Train()
+    t = Train(freeze_kernels=False, flag_d=2)
     t.train()
