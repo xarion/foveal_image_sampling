@@ -120,7 +120,7 @@ class Train:
         self.pickle_data["x_mus"] = x_mus
         self.pickle_data["y_mus"] = y_mus
         self.pickle_data["sigmas"] = sigmas
-        pickle.dump(self.pickle_data, open(self.output_dir + ".pickle", "wb"))
+        pickle.dump(self.pickle_data, open(self.output_dir + ".pickle", "wb"), protocol=2)
 
     def plot_kernels(self, x_mus, y_mus, sigmas, step):
         x_mus = x_mus.flatten()
