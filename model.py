@@ -4,6 +4,9 @@ import numpy as np
 from tensorflow.contrib.layers import batch_norm
 
 from clutter_it_mnist import clutter_it
+from tensorflow.examples.tutorials.mnist import input_data
+
+
 
 
 class Model:
@@ -15,7 +18,7 @@ class Model:
         self.mode = tf.placeholder_with_default(tf.constant(1, dtype=tf.int32), shape=[])
         self.x_mus, self.y_mus, self.sigmas = self.get_kernel_parameters()
         self.kernels = self.get_kernels()
-        self.mnist = tf.contrib.learn.datasets.load_dataset("mnist")
+        self.mnist = input_data.read_data_sets('fMNIST_data', one_hot=False)
         self.images, self.labels = self.get_data_placeholders()
         self.loss, self.training_op, self.predictions, self.accuracy, self.global_step = self.define_model()
 
